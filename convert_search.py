@@ -106,8 +106,9 @@ def process_directory(bbox_dataset):
             continue
         
         labels = getLabels(labelPath)  # Assuming getLabels is a function to parse label files
-        if labels == None:
+        if labels == None or labels == []:
             continue # yolo format skip if there's no labels.
+
         
         image = cv2.imread(imgPath, cv2.IMREAD_COLOR)  # Read the image file
         predictor.set_image(image)  # Assuming predictor is a pre-defined object for predictions
