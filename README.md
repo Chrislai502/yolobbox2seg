@@ -3,6 +3,12 @@
 ## Overview
 This script, `convert_search.py`, is designed to automate the conversion of bounding box annotations to segmentation masks for image datasets. It leverages the SAM (Segment Anything Model) for generating high-quality segmentation masks from images and their corresponding bounding box annotations.
 
+<p float="left">
+  <img src="https://github.com/Chrislai502/yolobbox2seg/assets/66889149/64d61d98-6299-436f-8b7c-5bb42ff4b4c2" width="48%" />
+  <img src="https://github.com/Chrislai502/yolobbox2seg/assets/66889149/daad76b6-53dc-40ed-933e-c1b588d11bd0" width="48%" /> 
+</p>
+
+
 ## Requirements
 Create a conda environment from the `conda_env.yml` or:
 - Python 3.8+
@@ -14,12 +20,7 @@ Create a conda environment from the `conda_env.yml` or:
 - SAM Model Checkpoint (e.g., `sam_vit_h_4b8939.pth`)
 
 ## Installation
-1. Ensure you have the required Python version and all necessary libraries installed. You can install the dependencies via pip:
-    ```bash
-    pip install opencv-python numpy Pillow torch tqdm
-    ```
-
-2. Download the SAM Model checkpoint file (`sam_vit_h_4b8939.pth`) and place it in the root directory of the project.
+1. Download the SAM Model checkpoint file (`sam_vit_h_4b8939.pth`) and place it in the root directory of the project.
 
 ## Usage
 1. Prepare your dataset with images and their corresponding YOLO format label files in the same directory. The script expects the following directory structure:
