@@ -11,6 +11,7 @@ import torch
 import shutil
 from utils import getLabels, getConvertedBoxes, save_all_masks_on_one_image, parse_seg_label_file
 import subprocess
+from copy import deepcopy
 
 # Initialize the SAM model
 print("Initializing SAM Model...")
@@ -25,6 +26,7 @@ print("SAM Model Initialized!")
 SAVE_MASK_IMAGE = True
 ROOT_FILEPATH = "./datasets/temp/"
 
+
 # Function to recursively find directories containing .jpg files, excluding certain directories
 def find_image_directories(root_path, exclude_suffix="_converted_to_segments"):
     directories = set()
@@ -38,12 +40,16 @@ def find_image_directories(root_path, exclude_suffix="_converted_to_segments"):
             if file.endswith(".jpg"):
                 directories.add(root)
                 break  # Stop searching this directory once a .jpg is found
+            elif file.endswith(".PNG"):
+                directories.add(root)
+                break  # Stop searching this directory once a .jpg is found
     return list(directories)
 
-def process_directory(bbox_dataset):
+def process_directory(bbox_dataset, img_filetype):
     
     seg_dataset = f"{bbox_dataset}_converted_to_segments"
-    image_files = glob.glob(f"{bbox_dataset}/*.jpg")
+    print(img_filetype)
+    image_files = glob.glob(f"{bbox_dataset}/*.{img_filetype}")
     label_files = glob.glob(f"{bbox_dataset}/*.txt")
 
     print("\n Processing directory:", bbox_dataset)
@@ -59,7 +65,7 @@ def process_directory(bbox_dataset):
     
     for imgPath in image_files:
         # get the label file path
-        labelPath = imgPath.replace(".jpg", ".txt")
+        labelPath = imgPath.replace(f".{img_filetype}", ".txt")
         # rplace images with labels
         labelPath = labelPath.replace("images", "labels")
         # add the image and label path to a tuple
@@ -80,8 +86,7 @@ def process_directory(bbox_dataset):
         if 'valid' in imgPath:  # Change destination if the image is for validation
             destination = f'{seg_dataset}/valid'
         
-        if SAVE_MASK_IMAGE:
-            mask_destination = f'{destination}/mask_validation'
+        mask_destination = f'{destination}/mask_validation'
         
         # Extract the file name without extension to use for the label file
         label_file = imgPath.split('/')[-1].split('.')[0]
@@ -90,7 +95,9 @@ def process_directory(bbox_dataset):
         # Skip processing if label file already exists in the destination
         if os.path.exists(seg_label_path):
             # print(f'{label_file} already exists in {destination}')
-            mask_file = os.path.join(mask_destination, os.path.basename(imgPath))
+            # print("the path:", f"{imgPath[:-4]}.jpg")
+            # print("THIS FILEPATH:", os.path.basename(f"{imgPath[:-4]}.jpg"))
+            mask_file = os.path.join(mask_destination, os.path.basename(f"{imgPath[:-4]}.jpg"))
             if (not os.path.exists(mask_file)) and SAVE_MASK_IMAGE:
                 # Convert the PIL image for compatibility
                 raw_image = Image.open(imgPath).convert("RGB")
@@ -102,7 +109,7 @@ def process_directory(bbox_dataset):
 
                 # Save the masks on the image
                 # print("Saving Validation Mask...")
-                save_all_masks_on_one_image(raw_image, masks, mask_destination, save_filename=os.path.basename(imgPath))
+                save_all_masks_on_one_image(raw_image, masks, mask_destination, save_filename=os.path.basename(f"{imgPath[:-4]}.jpg"))
             continue
         
         labels = getLabels(labelPath)  # Assuming getLabels is a function to parse label files
@@ -116,16 +123,34 @@ def process_directory(bbox_dataset):
         h, w = image.shape[:2]  # Get image dimensions
         
         # Convert bounding boxes according to the image dimensions
-        class_ids, bounding_boxes = getConvertedBoxes(labels, w, h)
+        class_ids, bounding_boxes, x_center, y_center= getConvertedBoxes(labels, w, h)
         
         # Convert bounding boxes to tensor and apply any necessary transformations
         input_boxes = torch.tensor(bounding_boxes, device=predictor.device)
         transformed_boxes = predictor.transform.apply_boxes_torch(input_boxes, image.shape[:2])
+        # print(input_boxes.size())
+        # Testing Feature, select 2 negative points from the top corners
+        corners = []
+        for bbox in bounding_boxes:
+            corners.append([bbox[0], bbox[3]])
+            corners.append([bbox[2], bbox[3]])
+            corners.append([x_center, y_center])
+        point_coords = torch.tensor(corners, device=predictor.device)[None, :, :]
+        point_labels = torch.zeros( (1, 3), device=predictor.device)
+        point_labels[0, 2] = 1
+        # print(point_coords.size())
+        # print(point_labels.size())
         
         # Predict masks based on the transformed bounding boxes
+        # Arguments:
+        #   point_coords (torch.Tensor or None): A BxNx2 array of point prompts to the
+        #     model. Each point is in (X,Y) in pixels.
+        #   point_labels (torch.Tensor or None): A BxN array of labels for the
+        #     point prompts. 1 indicates a foreground point and 0 indicates a
+        #     background point.
         masks, _, _ = predictor.predict_torch(
-            point_coords=None,
-            point_labels=None,
+            point_coords=point_coords,
+            point_labels=point_labels,
             boxes=transformed_boxes,
             multimask_output=False,
         )
@@ -171,7 +196,7 @@ def process_directory(bbox_dataset):
             the_size = masks.size()
             h, w = the_size[-2], the_size[-1]
             masks = masks.cpu().numpy().astype(np.uint8).reshape(-1, h, w)
-            save_all_masks_on_one_image(raw_image, masks, mask_destination, save_filename=os.path.basename(imgPath))
+            save_all_masks_on_one_image(raw_image, masks, mask_destination, save_filename=os.path.basename(f"{imgPath[:-4]}.jpg"))
 
         # Ensure the images directory exists and copy the current image to it
         if not os.path.exists(os.path.join(destination, 'images')):
@@ -182,6 +207,10 @@ def process_directory(bbox_dataset):
     mask_validation_dir = f"{destination}/mask_validation"
     output_video_path = f"{destination}/validation.mp4"
     
+    if not os.path.exists(output_video_path):
+        save_video_from_path(mask_validation_dir, img_filetype, output_video_path)
+    
+def save_video_from_path(mask_validation_dir, img_filetype, output_video_path):
     # Ensure the mask_validation directory exists and contains jpg files before calling ffmpeg
     if os.path.exists(mask_validation_dir) and len(glob.glob(f"{mask_validation_dir}/*.jpg")) > 0:
         ffmpeg_command = [
@@ -193,8 +222,12 @@ def process_directory(bbox_dataset):
             "-profile:v", "high",
             "-crf", "20",
             "-pix_fmt", "yuv420p",
-            output_video_path
+            f"{output_video_path}"
         ]
+        
+        print("Command to run: ", ffmpeg_command)
+        # ffmpeg -framerate 50 -pattern_type glob -i './datasets/temp/624_with_bbox_yolo/obj_train_data_converted_to_segments/train/mask_validation/*.jpg' -c:v libx264 -profile:v high -crf 20 -pix_fmt yuv420p ./datasets/temp/624_with_bbox_yolo/obj_train_data_converted_to_segments/train/validation.mp4
+        # ffmpeg -framerate 50 -pattern_type glob -i "$camera_output_dir/*.jpg"                                                                            -c:v libx264 -profile:v high -crf 20 -pix_fmt yuv420p "./output/$ROSBAG_NAME/$base_name.mp4"
         
         try:
             print("Creating video from masks...")
@@ -204,7 +237,7 @@ def process_directory(bbox_dataset):
             print("Failed to create video from masks:", e)
     else:
         print("No masks found to create a video in", mask_validation_dir)
-    
+
 def main(root_path):
     image_directories = find_image_directories(root_path)
     print("Processing These Image Directories:\n")
@@ -212,7 +245,11 @@ def main(root_path):
         print(f"{i}. ", image_dir)
         
     for image_dir in image_directories:
-        process_directory(image_dir)
+        for file in os.listdir(image_dir):
+            if file[-4:] != ".txt":
+                img_filetype = deepcopy(file[-3:])
+        print("IMAGE FILETYPE: ", img_filetype )
+        process_directory(image_dir, img_filetype)
 
 if __name__ == "__main__":
     main(ROOT_FILEPATH)
