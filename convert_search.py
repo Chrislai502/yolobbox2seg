@@ -24,7 +24,8 @@ predictor = SamPredictor(sam)
 print("SAM Model Initialized!")
 
 SAVE_MASK_IMAGE = True
-ROOT_FILEPATH = "./datasets/temp/"
+ROOT_FILEPATH = "./datasets/768/"
+
 
 
 # Function to recursively find directories containing .jpg files, excluding certain directories
@@ -128,18 +129,17 @@ def process_directory(bbox_dataset, img_filetype):
         # Convert bounding boxes to tensor and apply any necessary transformations
         input_boxes = torch.tensor(bounding_boxes, device=predictor.device)
         transformed_boxes = predictor.transform.apply_boxes_torch(input_boxes, image.shape[:2])
-        # print(input_boxes.size())
         # Testing Feature, select 2 negative points from the top corners
         corners = []
         for bbox in bounding_boxes:
             corners.append([bbox[0], bbox[3]])
             corners.append([bbox[2], bbox[3]])
-            corners.append([x_center, y_center])
+            # corners.append([x_center, y_center])
         point_coords = torch.tensor(corners, device=predictor.device)[None, :, :]
         point_labels = torch.zeros( (1, 3), device=predictor.device)
-        point_labels[0, 2] = 1
-        # print(point_coords.size())
-        # print(point_labels.size())
+        point_labels = torch.zeros( (1, 2), device=predictor.device)
+        
+        # point_labels[0, 2] = 1
         
         # Predict masks based on the transformed bounding boxes
         # Arguments:
@@ -249,7 +249,10 @@ def main(root_path):
             if file[-4:] != ".txt":
                 img_filetype = deepcopy(file[-3:])
         print("IMAGE FILETYPE: ", img_filetype )
-        process_directory(image_dir, img_filetype)
+        try:
+            process_directory(image_dir, img_filetype)
+        except:
+            print("something happened while processing directory")
 
 if __name__ == "__main__":
     main(ROOT_FILEPATH)

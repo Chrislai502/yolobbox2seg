@@ -27,13 +27,13 @@ def getConvertedBoxes(labels, image_width, image_height):
         box_width, box_height = float(bb_current[3]), float(bb_current[4])
         
         # Convert to top left and bottom right coordinates
-        x0 = int((x_center - box_width / 2) * image_width)
-        y0 = int((y_center - box_height / 2) * image_height)
-        x1 = int((x_center + box_width / 2) * image_width)
-        y1 = int((y_center + box_height / 2) * image_height)
+        x0 = int((x_center - box_width / 2) * image_width) # Left
+        y0 = int((y_center - box_height / 2) * image_height) # Bottom
+        x1 = int((x_center + box_width / 2) * image_width) # Right
+        y1 = int((y_center + box_height / 2) * image_height) # UP
         class_ids.append(class_id)
         converted_boxes.append([x0, y0, x1, y1])
-    return  class_ids, converted_boxes
+    return  class_ids, converted_boxes, x_center, y_center
 
 def save_all_masks_on_one_image(raw_image, masks, save_dir, save_filename="all_masks_overlay"):
     raw_image_array = np.array(raw_image, dtype=np.float32)  # Convert to float for blending
