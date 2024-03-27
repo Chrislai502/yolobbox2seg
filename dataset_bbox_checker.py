@@ -7,19 +7,6 @@ def count_files_with_pattern(directory, pattern):
     
     # Initialize a count of files that match the pattern
     matching_files_count = 0
-
-    # # Walk through all files in the specified directory
-    # for root, dirs, files in os.walk(directory):
-    #     for file in files:
-    #         file_path = os.path.join(root, file)
-    #         with open(file_path, 'r') as f:
-    #             # Read the file's contents
-    #             contents = f.read()
-    #             # Search for the pattern in the contents
-    #             if compiled_pattern.search(contents):
-    #                 matching_files_count += 1
-    #                 print(file_path)
-    #                 # break  # Found a match, no need to check further in this file
                     
     # Walk through all files in the specified directory
     for root, dirs, files in os.walk(directory):
