@@ -155,7 +155,7 @@ def process_directory(bbox_dataset, img_filetype):
         )
         
         # # ---------------------------------------------------------------------------- #
-        # #                                 UNTESTED CODE                                #
+        # #              UNTESTED CODE for debugging segments issue                      #
         # # ---------------------------------------------------------------------------- #
         # # This is because we should merge all the masks into one. 
         # merged_mask = None
@@ -177,35 +177,35 @@ def process_directory(bbox_dataset, img_filetype):
         # # ---------------------------------------------------------------------------- #
         # #                               UNTESTED CODE END                              #
         # # ---------------------------------------------------------------------------- #
-            binary_mask = masks[i].squeeze().cpu().numpy().astype(np.uint8)  # Convert mask to binary (0 or 1) format
-            contours, hierarchy = cv2.findContours(binary_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)  # Find contours in the binary mask
+        binary_mask = masks[i].squeeze().cpu().numpy().astype(np.uint8)  # Convert mask to binary (0 or 1) format
+        contours, hierarchy = cv2.findContours(binary_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)  # Find contours in the binary mask
+        
+        try:
+            largest_contour = max(contours, key=cv2.contourArea)  # Find the largest contour
+            segmentation = largest_contour.flatten().tolist()  # Flatten the largest contour to a list
+            mask = np.array(segmentation).reshape(-1, 2)  # Reshape for normalization
+            mask_norm = mask / np.array([w, h])  # Normalize the pixel coordinates
+            class_id = class_ids[i]  # Get the class ID for the current mask
+            yolo = mask_norm.reshape(-1)  # Flatten the normalized mask coordinates
             
-            try:
-                largest_contour = max(contours, key=cv2.contourArea)  # Find the largest contour
-                segmentation = largest_contour.flatten().tolist()  # Flatten the largest contour to a list
-                mask = np.array(segmentation).reshape(-1, 2)  # Reshape for normalization
-                mask_norm = mask / np.array([w, h])  # Normalize the pixel coordinates
-                class_id = class_ids[i]  # Get the class ID for the current mask
-                yolo = mask_norm.reshape(-1)  # Flatten the normalized mask coordinates
-                
-                if not os.path.exists(destination):  # Ensure the destination directory exists
-                    os.makedirs(destination)
-                
-            except Exception as e:
-                print(e)
-                continue  # Skip to the next mask if any errors occur
+            if not os.path.exists(destination):  # Ensure the destination directory exists
+                os.makedirs(destination)
             
-            loopCount += 1  # Increment the processed label count
+        except Exception as e:
+            print(e)
+            continue  # Skip to the next mask if any errors occur
+        
+        loopCount += 1  # Increment the processed label count
 
-            # Ensure the labels directory exists
-            if not os.path.exists(os.path.join(destination, 'labels')):
-                os.makedirs(os.path.join(destination, 'labels'))
-            
-            # Write the normalized mask coordinates to the label file
-            with open(seg_label_path, "a") as f:
-                for val in yolo:
-                    f.write(f"{class_id} {val:.6f}")
-                f.write("\n")
+        # Ensure the labels directory exists
+        if not os.path.exists(os.path.join(destination, 'labels')):
+            os.makedirs(os.path.join(destination, 'labels'))
+        
+        # Write the normalized mask coordinates to the label file
+        with open(seg_label_path, "a") as f:
+            for val in yolo:
+                f.write(f"{class_id} {val:.6f}")
+            f.write("\n")
         
         if SAVE_MASK_IMAGE:
             # Ensure the mask_destination directory exists
@@ -246,9 +246,7 @@ def save_video_from_path(mask_validation_dir, img_filetype, output_video_path):
             f"{output_video_path}"
         ]
         
-        print("Command to run: ", ffmpeg_command)
-        # ffmpeg -framerate 50 -pattern_type glob -i './datasets/temp/624_with_bbox_yolo/obj_train_data_converted_to_segments/train/mask_validation/*.jpg' -c:v libx264 -profile:v high -crf 20 -pix_fmt yuv420p ./datasets/temp/624_with_bbox_yolo/obj_train_data_converted_to_segments/train/validation.mp4
-        # ffmpeg -framerate 50 -pattern_type glob -i "$camera_output_dir/*.jpg"                                                                            -c:v libx264 -profile:v high -crf 20 -pix_fmt yuv420p "./output/$ROSBAG_NAME/$base_name.mp4"
+        print("Command to run: ", ffmpeg_command)                                                                 -c:v libx264 -profile:v high -crf 20 -pix_fmt yuv420p "./output/$ROSBAG_NAME/$base_name.mp4"
         
         try:
             print("Creating video from masks...")

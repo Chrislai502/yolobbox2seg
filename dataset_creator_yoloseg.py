@@ -10,7 +10,7 @@ import yaml
 base_dir = "./datasets/Converted/"
 
 # Set the destination for train and val data
-dataset_root_dir = "./datasets/aggregated/03_13_24_Batch4_Batch5_Batch6_exported_datasets_yolo/"
+dataset_root_dir = "./datasets/"
 train_dir = f"{dataset_root_dir}train/" 
 val_dir   = f"{dataset_root_dir}val/"
 yaml_path = f"{dataset_root_dir}data.yaml"
