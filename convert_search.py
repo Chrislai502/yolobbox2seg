@@ -13,6 +13,13 @@ from utils import getLabels, getConvertedBoxes, save_all_masks_on_one_image, par
 import subprocess
 from copy import deepcopy
 
+SAVE_MASK_IMAGE = True
+ROOT_FILEPATH = "/media/chris-lai/Local Disk/YOLO_datasets/multicar_datasets/compiled_bbox_datasets/"
+
+if not os.path.exists(ROOT_FILEPATH):
+    print(f"ROOT FILEPATH: {ROOT_FILEPATH} \n Doesn't Exist!!")
+    exit(0)
+
 # Initialize the SAM model
 print("Initializing SAM Model...")
 sam_checkpoint = "sam_vit_h_4b8939.pth"
@@ -22,10 +29,6 @@ sam = sam_model_registry[model_type](checkpoint=sam_checkpoint)
 sam.to(device=device)
 predictor = SamPredictor(sam)
 print("SAM Model Initialized!")
-
-SAVE_MASK_IMAGE = True
-ROOT_FILEPATH = "/media/jiamingzhang/Local Disk/YOLO_datasets/small_multicar/"
-
 
 # Function to recursively find directories containing .jpg files, excluding certain directories
 def find_image_directories(root_path, exclude_suffix="_converted_to_segments"):
@@ -156,7 +159,6 @@ def process_directory(bbox_dataset, img_filetype):
             boxes=transformed_boxes,
             multimask_output=False,
         )
-        print('check 6')
         # # ---------------------------------------------------------------------------- #
         # #              UNTESTED CODE for debugging segments issue                      #
         # # ---------------------------------------------------------------------------- #
@@ -209,7 +211,7 @@ def process_directory(bbox_dataset, img_filetype):
                 for val in yolo:
                     f.write(f"{class_id} {val:.6f}")
                 f.write("\n")
-        print('check 10')
+  
         if SAVE_MASK_IMAGE:
             # Ensure the mask_destination directory exists
             if not os.path.exists(mask_destination):
@@ -278,4 +280,7 @@ def main(root_path):
             print("something happened while processing directory")
 
 if __name__ == "__main__":
-    main(ROOT_FILEPATH)
+    if os.path.exists(ROOT_FILEPATH):
+        main(ROOT_FILEPATH)
+    else:
+        print(f"ROOT FILEPATH: {ROOT_FILEPATH} \n Doesn't Exist!!")
