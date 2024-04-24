@@ -7,10 +7,10 @@ import yaml
 
 
 # Define your base, train, and validation directories
-base_dir = "./datasets/Converted/"
+base_dir = "/mnt/roar_shared_disk/YOLO_datasets/jiaming/multicar_datasets/compiled_bbox_datasets/"
 
 # Set the destination for train and val data
-dataset_root_dir = "./datasets/"
+dataset_root_dir = "jiaming_multicar_datasets/" # "/home/YOLOv8-Fine-Tune/datasets/jiaming_multicar_datasets/"
 train_dir = f"{dataset_root_dir}train/" 
 val_dir   = f"{dataset_root_dir}val/"
 yaml_path = f"{dataset_root_dir}data.yaml"
@@ -18,6 +18,7 @@ yaml_path = f"{dataset_root_dir}data.yaml"
 # Your class configuration
 nc = 1
 names = ['car']
+MIN_SEG_POINTS = 4
 
 def ask_permission_and_clear(directory):
     """Asks for permission to clear the directory if it exists, then clears it."""
@@ -82,41 +83,27 @@ def match_images_with_labels(images, labels):
     return matched_images, matched_labels
 
 def process_label_file(file_path):
+    # Jiaming 4/22: we are NOT merging multiple segments!!!, instead, this function is used to filter out very small segments that are not visible
     with open(file_path, 'r') as file:
         lines = file.readlines()
 
-    if not lines or len(lines) == 1:
-        return  # Skip empty files
-
     print(f"Processing: {file_path}")
     
-    # Extract class from the first line (assuming all lines have the same class)
+    # Extract class from the first line (assuming all lines have the same class) not used for now
     first_line_parts = lines[0].split()
     instance_class = first_line_parts[0]
     
-    # Use a set to store unique coordinates (as tuples to ensure hashability)
-    unique_coords = set()
+    out = [] # saved good segments
     for line in lines:
+        # if a line (segement) has less than MIN_SEG_POINTS points, ignore that segement
         coords = line.split()[1:]  # Skip the class part
-        # Process coordinates in pairs and add them to the set
-        for i in range(0, len(coords), 2):
-            coord_pair = (coords[i], coords[i+1])  # Create a tuple for each coordinate pair
-            unique_coords.add(coord_pair)
+        if len(coords) >= MIN_SEG_POINTS * 2:
+            out.append(line)
     
-    # Convert unique coordinate tuples back to a list of strings for writing to file
-    all_coords = [coord for pair in unique_coords for coord in pair]  # Flatten the set of tuples back into a list
-
-    # Check if the unique merged instance has TODO: area less than 5 points
-    if len(all_coords) < 5 * 2:  # Each point has two coordinates (x, y)
-        print(f"Removed Segments for: {file_path}")
-        with open(file_path, 'w') as file:  # Empty the file
-            file.write("")
-        
-    else:
-        # Write the unique merged instance back to the file
-        with open(file_path, 'w') as file:
-            merged_line = instance_class + ' ' + ' '.join(all_coords) + '\n'
-            file.write(merged_line)
+    # Write the good, significant segements back to the file
+    with open(file_path, 'w') as file:
+        for l in out:
+            file.write(l)
 
 # Ask for permission to replace directories if they exist
 ask_permission_and_clear(train_dir)
